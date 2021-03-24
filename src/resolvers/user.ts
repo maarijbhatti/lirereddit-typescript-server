@@ -71,8 +71,30 @@ export class UserResolver {
       username: options.username,
       password: hashedPassword,
     });
-    await em.persistAndFlush(user);
-    return { user };
+    try {
+      await em.persistAndFlush(user);
+      return { user };
+    } catch (err) {
+      console.log(err);
+      if (err.code == "23505")
+        return {
+          errors: [
+            {
+              field: "username",
+              message: "username already exist:",
+            },
+          ],
+        };
+      else
+        return {
+          errors: [
+            {
+              field: "username",
+              message: err.detail,
+            },
+          ],
+        };
+    }
   }
 
   @Query(() => UserResponse)
