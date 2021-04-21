@@ -8,22 +8,58 @@ import { buildSchema } from "type-graphql";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/posts";
 import { UserResolver } from "./resolvers/user";
+import Redis from "ioredis";
+import session from "express-session";
+import connectRedis from "connect-redis";
+import { MyContext } from "./typs";
+import cors from "cors";
+
+declare module "express-session" {
+  interface Session {
+    userId: number;
+  }
+}
 
 const main = async () => {
   const orm = await MikroORM.init(microConfig);
+  //orm.em.nativeDelete(User, {});
   await orm.getMigrator().up();
 
   const app = express();
+
+  const RedisStore = connectRedis(session);
+  const redis = new Redis();
+
+  app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+
+  app.use(
+    session({
+      name: "qid",
+      store: new RedisStore({
+        client: redis,
+        disableTouch: true,
+      }),
+      cookie: {
+        maxAge: 1000 * 60 * 60 * 24 * 365 * 10, //10  years
+        httpOnly: true,
+        sameSite: "lax",
+        secure: __prod__, // cookie only works in https
+      },
+      saveUninitialized: false,
+      secret: "asDASDSADWES",
+      resave: false,
+    })
+  );
 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: () => ({ em: orm.em }),
+    context: ({ req, res }): MyContext => ({ em: orm.em, req, res, redis }),
   });
 
-  apolloServer.applyMiddleware({ app });
+  apolloServer.applyMiddleware({ app, cors: false });
 
   app.listen(4000, () => {
     console.log("server started on localhost:4000");
