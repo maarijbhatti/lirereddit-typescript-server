@@ -43,6 +43,7 @@ let UserResolver = class UserResolver {
                 return { errors: [{ field: "token", message: "token expired" }] };
             }
             const user = yield em.findOne(User_1.User, { _id: parseInt(userId) });
+            console.log("here is user:", userId, user);
             if (!user) {
                 return { errors: [{ field: "token", message: "user no longer exist" }] };
             }
@@ -55,12 +56,12 @@ let UserResolver = class UserResolver {
     }
     forgotPassword({ em, redis }, email) {
         return __awaiter(this, void 0, void 0, function* () {
-            const user = em.findOne(User_1.User, { email });
+            const user = yield em.findOne(User_1.User, { email });
             if (!user) {
                 return true;
             }
             const token = uuid_1.v4();
-            yield redis.set(`${constants_1.FORGET_PASSWORD_PREFIX}${token}`, 1000 * 60 * 60 * 24 * 3);
+            yield redis.set(`${constants_1.FORGET_PASSWORD_PREFIX}${token}`, user._id, "ex", 1000 * 60 * 60 * 24 * 3);
             yield sendEmail_1.sendEmail(email, `<a href="http://localhost:3000/change-password/${token}">reset password</a>`);
             return true;
         });

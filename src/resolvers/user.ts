@@ -26,6 +26,7 @@ export class UserResolver {
     }
 
     const user = await em.findOne(User, { _id: parseInt(userId) });
+    console.log("here is user:", userId, user);
     if (!user) {
       return { errors: [{ field: "token", message: "user no longer exist" }] };
     }
@@ -45,7 +46,7 @@ export class UserResolver {
     @Ctx() { em, redis }: MyContext,
     @Arg("email") email: string
   ) {
-    const user = em.findOne(User, { email });
+    const user = await em.findOne(User, { email });
     if (!user) {
       return true;
     }
@@ -54,6 +55,8 @@ export class UserResolver {
 
     await redis.set(
       `${FORGET_PASSWORD_PREFIX}${token}`,
+      user._id,
+      "ex",
       1000 * 60 * 60 * 24 * 3
     );
 
